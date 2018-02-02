@@ -690,6 +690,31 @@ defmodule Gettext do
   end
 
   @doc """
+  TODO: dpgettext doc
+  """
+  @spec dpgettext(module, binary, binary, binary, bindings) :: binary
+  def dpgettext(backend, domain, msgctxt, msgid, bindings \\ %{})
+
+  def dpgettext(backend, domain, msgctxt, msgid, bindings) when is_list(bindings) do
+    dpgettext(backend, domain, msgctxt, msgid, Map.new(bindings))
+  end
+
+  def dpgettext(backend, domain, msgctxt, msgid, bindings)
+      when is_atom(backend) and is_binary(domain) and is_binary(msgctxt) and is_binary(msgid) and is_map(bindings) do
+    locale = get_locale(backend)
+    result = backend.lgettext(locale, domain, msgctxt, msgid, bindings)
+    handle_backend_result(result, backend, locale, domain, msgid)
+  end
+
+  @doc """
+  TODO: pgettext doc 
+  """
+  @spec pgettext(module, binary, binary, bindings) :: binary
+  def pgettext(backend, msgctxt, msgid, bindings \\ %{}) do
+    dpgettext(backend, "default", msgctxt, msgid, bindings)
+  end
+
+  @doc """
   Returns the pluralized translation of the given string in the given domain.
 
   The string is translated and pluralized by the `backend` module.

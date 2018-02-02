@@ -17,7 +17,9 @@ defmodule Gettext.Extractor do
     ExtractorAgent,
     PO,
     PO.Translation,
-    PO.PluralTranslation
+    PO.ParticularTranslation,
+    PO.PluralTranslation,
+    PO.ParticularPluralTranslation
   }
 
   @extracted_translations_flag "elixir-format"
@@ -124,6 +126,27 @@ defmodule Gettext.Extractor do
     update_in(translation.references, &Enum.sort/1)
   end
 
+  defp create_translation_struct({:regular, msgid}, file, line, extracted_comments) do
+    %Translation{
+      msgid: [msgid],
+      msgstr: [""],
+      flags: MapSet.new([@extracted_translations_flag]),
+      references: [{Path.relative_to_cwd(file), line}],
+      extracted_comments: extracted_comments
+    }
+  end
+
+  defp create_translation_struct({:particular, msgctxt, msgid}, file, line, extracted_comments) do
+    %ParticularTranslation{
+      msgctxt: [msgctxt],
+      msgid: [msgid],
+      msgstr: [""],
+      flags: MapSet.new([@extracted_translations_flag]),
+      references: [{Path.relative_to_cwd(file), line}],
+      extracted_comments: extracted_comments
+    }
+  end
+
   defp create_translation_struct({:plural, msgid, msgid_plural}, file, line, extracted_comments) do
     %PluralTranslation{
       msgid: [msgid],
@@ -135,10 +158,17 @@ defmodule Gettext.Extractor do
     }
   end
 
-  defp create_translation_struct({:regular, msgid}, file, line, extracted_comments) do
-    %Translation{
+  defp create_translation_struct(
+         {:particular_plural, msgctxt, msgid, msgid_plural},
+         file,
+         line,
+         extracted_comments
+       ) do
+    %ParticularPluralTranslation{
+      msgctxt: [msgctxt],
       msgid: [msgid],
-      msgstr: [""],
+      msgid_plural: [msgid_plural],
+      msgstr: %{0 => [""], 1 => [""]},
       flags: MapSet.new([@extracted_translations_flag]),
       references: [{Path.relative_to_cwd(file), line}],
       extracted_comments: extracted_comments

@@ -9,6 +9,7 @@ defmodule Gettext.PO do
   alias Gettext.PO.Parser
   alias Gettext.PO.SyntaxError
   alias Gettext.PO.Translation
+  alias Gettext.PO.ParticularTranslation
   alias Gettext.PO.PluralTranslation
 
   @type line :: pos_integer
@@ -235,6 +236,18 @@ defmodule Gettext.PO do
       dump_comments(t.extracted_comments),
       dump_flags(t.flags),
       dump_references(t.references, gettext_config),
+      dump_kw_and_strings("msgid", t.msgid),
+      dump_kw_and_strings("msgstr", t.msgstr)
+    ]
+  end
+
+  defp dump_translation(%ParticularTranslation{} = t, gettext_config) do
+    [
+      dump_comments(t.comments),
+      dump_comments(t.extracted_comments),
+      dump_flags(t.flags),
+      dump_references(t.references, gettext_config),
+      dump_kw_and_strings("msgctxt", t.msgctxt),
       dump_kw_and_strings("msgid", t.msgid),
       dump_kw_and_strings("msgstr", t.msgstr)
     ]

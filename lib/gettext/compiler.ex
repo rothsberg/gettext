@@ -76,7 +76,7 @@ defmodule Gettext.Compiler do
             __CALLER__,
             __MODULE__,
             domain,
-            msgid,
+            {:regular, msgid},
             Gettext.Compiler.get_and_flush_extracted_comments()
           )
         end
@@ -102,7 +102,7 @@ defmodule Gettext.Compiler do
             __CALLER__,
             __MODULE__,
             domain,
-            {msgid, msgid_plural},
+            {:plural, msgid, msgid_plural},
             Gettext.Compiler.get_and_flush_extracted_comments()
           )
         end

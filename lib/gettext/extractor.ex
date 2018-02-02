@@ -124,7 +124,7 @@ defmodule Gettext.Extractor do
     update_in(translation.references, &Enum.sort/1)
   end
 
-  defp create_translation_struct({msgid, msgid_plural}, file, line, extracted_comments) do
+  defp create_translation_struct({:plural, msgid, msgid_plural}, file, line, extracted_comments) do
     %PluralTranslation{
       msgid: [msgid],
       msgid_plural: [msgid_plural],
@@ -135,7 +135,7 @@ defmodule Gettext.Extractor do
     }
   end
 
-  defp create_translation_struct(msgid, file, line, extracted_comments) do
+  defp create_translation_struct({:regular, msgid}, file, line, extracted_comments) do
     %Translation{
       msgid: [msgid],
       msgstr: [""],

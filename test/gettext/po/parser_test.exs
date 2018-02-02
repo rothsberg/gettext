@@ -1,9 +1,13 @@
 defmodule Gettext.PO.ParserTest do
   use ExUnit.Case
 
-  alias Gettext.PO.Parser
-  alias Gettext.PO.Translation
-  alias Gettext.PO.PluralTranslation
+  alias Gettext.PO.{
+    Parser,
+    Translation,
+    ParticularTranslation,
+    PluralTranslation,
+    ParticularPluralTranslation
+  }
 
   test "parse/1 with single strings" do
     parsed =
@@ -65,6 +69,44 @@ defmodule Gettext.PO.ParserTest do
     assert {:ok, [], [], [translation]} = parsed
 
     assert %PluralTranslation{
+             msgid: ["foo"],
+             msgid_plural: ["foos"],
+             msgstr: %{
+               0 => ["bar"],
+               1 => ["bars"],
+               2 => ["barres"]
+             }
+           } = translation
+  end
+
+  test "parse/1 with msgctxt" do
+    parsed =
+      parse("""
+      msgctxt "foo"
+      msgid "hello"
+      msgstr "ciao"
+      """)
+
+    assert {:ok, [], [],
+            [%ParticularTranslation{msgctxt: ["foo"], msgid: ["hello"], msgstr: ["ciao"]}]} =
+             parsed
+  end
+
+  test "parse/1 with msgctxt and msgid_plural" do
+    parsed =
+      parse("""
+      msgctxt "baz"
+      msgid "foo"
+      msgid_plural "foos"
+      msgstr[0] "bar"
+      msgstr[1] "bars"
+      msgstr[2] "barres"
+      """)
+
+    assert {:ok, [], [], [translation]} = parsed
+
+    assert %ParticularPluralTranslation{
+             msgctxt: ["baz"],
              msgid: ["foo"],
              msgid_plural: ["foos"],
              msgstr: %{
@@ -360,19 +402,7 @@ defmodule Gettext.PO.ParserTest do
            } = parsed
   end
 
-  test "msgctxt is parsed correctly but ignored" do
-    parsed =
-      parse("""
-      msgctxt "my_" "context"
-      msgid "my_msgid"
-      msgstr "my_msgstr"
-      """)
-
-    assert {:ok, [], [], [%Translation{} = translation]} = parsed
-    assert translation.msgid == ["my_msgid"]
-    assert translation.msgstr == ["my_msgstr"]
-
-    # Badly placed msgctxt still causes a syntax error
+  test "badly placed msgctxt causes a syntax error" do
     parsed =
       parse("""
       msgid "my_msgid"

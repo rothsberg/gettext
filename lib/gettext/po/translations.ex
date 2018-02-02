@@ -1,12 +1,21 @@
 defmodule Gettext.PO.Translations do
   @moduledoc false
 
-  alias Gettext.PO.Translation
-  alias Gettext.PO.PluralTranslation
+  alias Gettext.PO.{
+    Translation,
+    ParticularTranslation,
+    PluralTranslation,
+    ParticularPluralTranslation
+  }
 
   defmacrop is_translation(module) do
     quote do
-      unquote(module) in [Translation, PluralTranslation]
+      unquote(module) in [
+        Translation,
+        ParticularTranslation,
+        PluralTranslation,
+        ParticularPluralTranslation
+      ]
     end
   end
 
@@ -88,18 +97,35 @@ defmodule Gettext.PO.Translations do
 
       iex> t = %Gettext.PO.Translation{msgid: "foo"}
       iex> Gettext.PO.Translations.key(t)
-      "foo"
+      {:regular, "foo"}
+
+      iex> t = %Gettext.PO.ParticularTranslation{msgctxt: "bar", msgid: "foo"}
+      iex> Gettext.PO.Translations.key(t)
+      {:particular, "bar", "foo"}
 
       iex> t = %Gettext.PO.PluralTranslation{msgid: "foo", msgid_plural: "foos"}
       iex> Gettext.PO.Translations.key(t)
-      {"foo", "foos"}
+      {:plural, "foo", "foos"}
+      
+      iex> t = %Gettext.PO.ParticularPluralTranslation{msgctxt: "bar", msgid: "foo", msgid_plural: "foos"}
+      iex> Gettext.PO.Translations.key(t)
+      {:particular_plural, "bar", "foo", "foos"}
 
   """
-  @spec key(PO.translation()) :: binary | {binary, binary}
-  def key(%Translation{msgid: msgid}), do: IO.iodata_to_binary(msgid)
+  @spec key(PO.translation()) ::
+          {atom, binary} | {atom, binary, binary} | {atom, binary, binary, binary}
+  def key(%Translation{msgid: msgid}), do: {:regular, IO.iodata_to_binary(msgid)}
+
+  def key(%ParticularTranslation{msgctxt: msgctxt, msgid: msgid}),
+    do: {:particular, IO.iodata_to_binary(msgctxt), IO.iodata_to_binary(msgid)}
 
   def key(%PluralTranslation{msgid: msgid, msgid_plural: msgid_plural}),
-    do: {IO.iodata_to_binary(msgid), IO.iodata_to_binary(msgid_plural)}
+    do: {:plural, IO.iodata_to_binary(msgid), IO.iodata_to_binary(msgid_plural)}
+
+  def key(%ParticularPluralTranslation{msgctxt: msgctxt, msgid: msgid, msgid_plural: msgid_plural}),
+      do:
+        {:particular_plural, IO.iodata_to_binary(msgctxt), IO.iodata_to_binary(msgid),
+         IO.iodata_to_binary(msgid_plural)}
 
   @doc """
   Finds a given translation in a list of translations.

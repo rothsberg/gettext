@@ -1,9 +1,13 @@
 defmodule Gettext.PO.Parser do
   @moduledoc false
 
-  alias Gettext.PO.Translations
-  alias Gettext.PO.Translation
-  alias Gettext.PO.PluralTranslation
+  alias Gettext.PO.{
+    Translations,
+    Translation,
+    ParticularTranslation,
+    PluralTranslation,
+    ParticularPluralTranslation
+  }
 
   @doc """
   Parses a list of tokens into a list of translations.
@@ -36,8 +40,22 @@ defmodule Gettext.PO.Parser do
     |> extract_flags()
   end
 
+  defp to_struct({:particular_translation, translation}) do
+    struct(ParticularTranslation, translation)
+    |> extract_references()
+    |> extract_extracted_comments()
+    |> extract_flags()
+  end
+
   defp to_struct({:plural_translation, translation}) do
     struct(PluralTranslation, translation)
+    |> extract_references()
+    |> extract_extracted_comments()
+    |> extract_flags()
+  end
+
+  defp to_struct({:particular_plural_translation, translation}) do
+    struct(ParticularPluralTranslation, translation)
     |> extract_references()
     |> extract_extracted_comments()
     |> extract_flags()

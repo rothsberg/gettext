@@ -1,5 +1,5 @@
 Nonterminals grammar translations translation pluralizations pluralization
-             strings comments maybe_msgctxt.
+             strings comments.
 Terminals str msgid msgid_plural msgctxt msgstr plural_form comment.
 Rootsymbol grammar.
 
@@ -16,19 +16,36 @@ translations ->
   comments translation translations : [add_comments_to_translation('$2', '$1')|'$3'].
 
 translation ->
-  maybe_msgctxt msgid strings msgstr strings : {translation, #{
+  msgid strings msgstr strings : {translation, #{
     comments       => [],
-    msgid          => '$3',
-    msgstr         => '$5',
-    po_source_line => extract_line('$2')
+    msgid          => '$2',
+    msgstr         => '$4',
+    po_source_line => extract_line('$1')
   }}.
 translation ->
-  maybe_msgctxt msgid strings msgid_plural strings pluralizations : {plural_translation, #{
+  msgctxt strings msgid strings msgstr strings : {particular_translation, #{
     comments       => [],
-    msgid          => '$3',
-    msgid_plural   => '$5',
-    msgstr         => plural_forms_map_from_list('$6'),
-    po_source_line => extract_line('$2')
+    msgctxt        => '$2',
+    msgid          => '$4',
+    msgstr         => '$6',
+    po_source_line => extract_line('$3')
+  }}.
+translation ->
+  msgid strings msgid_plural strings pluralizations : {plural_translation, #{
+    comments       => [],
+    msgid          => '$2',
+    msgid_plural   => '$4',
+    msgstr         => plural_forms_map_from_list('$5'),
+    po_source_line => extract_line('$1')
+  }}.
+translation ->
+  msgctxt strings msgid strings msgid_plural strings pluralizations : {particular_plural_translation, #{
+    comments       => [],
+    msgctxt        => '$2',
+    msgid          => '$4',
+    msgid_plural   => '$6',
+    msgstr         => plural_forms_map_from_list('$7'),
+    po_source_line => extract_line('$3')
   }}.
 
 pluralizations ->
@@ -48,12 +65,6 @@ comments ->
   '$empty' : [].
 comments ->
   comment comments : [extract_simple_token('$1')|'$2'].
-
-%% For now, we ignore the msgctxt.
-maybe_msgctxt ->
-  '$empty' : [].
-maybe_msgctxt ->
-  msgctxt strings : [].
 
 Erlang code.
 

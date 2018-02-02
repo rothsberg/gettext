@@ -58,7 +58,7 @@ defmodule Gettext.Compiler do
       # These are the two functions we generated inside the backend. Here we define the bodyless
       # clauses.
       def lgettext(locale, domain, msgid, bindings)
-      def lpgettext(locale, domain, msgctxt, msgid, bindings)
+      def lgettext(locale, domain, msgctxt, msgid, bindings)
       def lngettext(locale, domain, msgid, msgid_plural, n, bindings)
 
       unquote(compile_po_files(env, translations_dir, opts))
@@ -222,7 +222,7 @@ defmodule Gettext.Compiler do
   end
 
   @doc """
-  Returns the quoted code for the dynamic clauses of `lgettext/4`, `lpgettext/5 and
+  Returns the quoted code for the dynamic clauses of `lgettext/4`, `lgettext/5 and
   `lngettext/6`.
   """
   @spec catch_all_clauses() :: Macro.t()
@@ -232,7 +232,7 @@ defmodule Gettext.Compiler do
         catch_all(domain, msgid, bindings)
       end
 
-      def lpgettext(_locale, domain, msgctxt, msgid, bindings) do
+      def lgettext(_locale, domain, msgctxt, msgid, bindings) do
         catch_all_p(domain, msgctxt, msgid, bindings)
       end
 
@@ -387,7 +387,7 @@ defmodule Gettext.Compiler do
         unquote(singular_fun)(msgid, bindings)
       end
 
-      def lpgettext(unquote(locale), unquote(domain), msgctxt, msgid, bindings) do
+      def lgettext(unquote(locale), unquote(domain), msgctxt, msgid, bindings) do
         unquote(singular_fun)(msgctxt, msgid, bindings)
       end
 
@@ -409,7 +409,7 @@ defmodule Gettext.Compiler do
           unquote(module).unquote(singular_fun)(msgid, bindings)
         end
 
-        def lpgettext(unquote(locale), unquote(domain), msgctxt, msgid, bindings) do
+        def lgettext(unquote(locale), unquote(domain), msgctxt, msgid, bindings) do
           unquote(module).unquote(singular_fun)(msgctxt, msgid, bindings)
         end
 

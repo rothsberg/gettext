@@ -327,12 +327,50 @@ defmodule Gettext.Extractor do
     }
   end
 
+  defp merge_translations(
+         %ParticularTranslation{} = old,
+         %ParticularTranslation{comments: []} = new
+       ) do
+    ensure_empty_msgstr!(old)
+    ensure_empty_msgstr!(new)
+
+    %ParticularTranslation{
+      msgctxt: old.msgctxt,
+      msgid: old.msgid,
+      msgstr: old.msgstr,
+      # The new in-memory translation has no comments since it was extracted
+      # from the source code.
+      comments: old.comments,
+      # We don't care about the references of the old translation since the new
+      # in-memory translation has all the actual and current references.
+      references: new.references
+    }
+  end
+
   defp merge_translations(%PluralTranslation{} = old, %PluralTranslation{comments: []} = new) do
     ensure_empty_msgstr!(old)
     ensure_empty_msgstr!(new)
 
     # The logic here is the same as for %Translation{}s.
     %PluralTranslation{
+      msgid: old.msgid,
+      msgid_plural: old.msgid_plural,
+      msgstr: old.msgstr,
+      comments: old.comments,
+      references: new.references
+    }
+  end
+
+  defp merge_translations(
+         %ParticularPluralTranslation{} = old,
+         %ParticularPluralTranslation{comments: []} = new
+       ) do
+    ensure_empty_msgstr!(old)
+    ensure_empty_msgstr!(new)
+
+    # The logic here is the same as for %Translation{}s.
+    %ParticularPluralTranslation{
+      msgctxt: old.msgctxt,
       msgid: old.msgid,
       msgid_plural: old.msgid_plural,
       msgstr: old.msgstr,
@@ -348,6 +386,13 @@ defmodule Gettext.Extractor do
     end
   end
 
+  defp ensure_empty_msgstr!(%ParticularTranslation{msgstr: msgstr} = t) do
+    unless blank?(msgstr) do
+      raise Error,
+            "particular translation with msgid '#{IO.iodata_to_binary(t.msgid)}' has a non-empty msgstr"
+    end
+  end
+
   defp ensure_empty_msgstr!(%PluralTranslation{msgstr: %{0 => str0, 1 => str1}} = t) do
     if not blank?(str0) or not blank?(str1) do
       raise Error,
@@ -356,6 +401,18 @@ defmodule Gettext.Extractor do
   end
 
   defp ensure_empty_msgstr!(%PluralTranslation{} = t) do
+    raise Error,
+          "plural translation with msgid '#{IO.iodata_to_binary(t.msgid)}' has a non-empty msgstr"
+  end
+
+  defp ensure_empty_msgstr!(%ParticularPluralTranslation{msgstr: %{0 => str0, 1 => str1}} = t) do
+    if not blank?(str0) or not blank?(str1) do
+      raise Error,
+            "particular plural translation with msgid '#{IO.iodata_to_binary(t.msgid)}' has a non-empty msgstr"
+    end
+  end
+
+  defp ensure_empty_msgstr!(%ParticularPluralTranslation{} = t) do
     raise Error,
           "plural translation with msgid '#{IO.iodata_to_binary(t.msgid)}' has a non-empty msgstr"
   end

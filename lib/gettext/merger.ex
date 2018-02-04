@@ -3,7 +3,9 @@ defmodule Gettext.Merger do
 
   alias Gettext.PO
   alias Gettext.PO.Translation
+  alias Gettext.PO.ParticularTranslation
   alias Gettext.PO.PluralTranslation
+  alias Gettext.PO.ParticularPluralTranslation
   alias Gettext.Fuzzy
 
   @new_po_informative_comment """
@@ -136,8 +138,45 @@ defmodule Gettext.Merger do
     }
   end
 
+  defp merge_two_translations(%ParticularTranslation{} = old, %ParticularTranslation{} = new) do
+    %ParticularTranslation{
+      # they are the same
+      msgctxt: new.msgctxt,
+      # they are the same
+      msgid: new.msgid,
+      # new.msgstr should be empty since it's a POT file
+      msgstr: old.msgstr,
+      # new has no translator comments
+      comments: old.comments,
+      extracted_comments: new.extracted_comments,
+      flags: new.flags,
+      references: new.references
+    }
+  end
+
   defp merge_two_translations(%PluralTranslation{} = old, %PluralTranslation{} = new) do
     %PluralTranslation{
+      # they are the same
+      msgid: new.msgid,
+      # they are the same
+      msgid_plural: new.msgid_plural,
+      # new.msgstr should be empty since it's a POT file
+      msgstr: old.msgstr,
+      # new has no translator comments
+      comments: old.comments,
+      extracted_comments: new.extracted_comments,
+      flags: new.flags,
+      references: new.references
+    }
+  end
+
+  defp merge_two_translations(
+         %ParticularPluralTranslation{} = old,
+         %ParticularPluralTranslation{} = new
+       ) do
+    %ParticularPluralTranslation{
+      # they are the same
+      msgctxt: new.msgctxt,
       # they are the same
       msgid: new.msgid,
       # they are the same

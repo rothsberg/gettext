@@ -690,7 +690,7 @@ defmodule Gettext do
   end
 
   @doc """
-  TODO: dpgettext doc
+  TODO: Add Gettext.dpgettext documentation.
   """
   @spec dpgettext(module, binary, binary, binary, bindings) :: binary
   def dpgettext(backend, domain, msgctxt, msgid, bindings \\ %{})
@@ -707,7 +707,7 @@ defmodule Gettext do
   end
 
   @doc """
-  TODO: pgettext doc 
+  TODO: Add pgettext documentation.
   """
   @spec pgettext(module, binary, binary, bindings) :: binary
   def pgettext(backend, msgctxt, msgid, bindings \\ %{}) do
@@ -766,6 +766,28 @@ defmodule Gettext do
   @spec ngettext(module, binary, binary, non_neg_integer, bindings) :: binary
   def ngettext(backend, msgid, msgid_plural, n, bindings \\ %{}) do
     dngettext(backend, "default", msgid, msgid_plural, n, bindings)
+  end
+
+  # TODO: Add Gettext.dpngettext documentation.
+  @spec dpngettext(module, binary, binary, binary, binary, non_neg_integer, bindings) :: binary
+  def dpngettext(backend, domain, msgctxt, msgid, msgid_plural, n, bindings \\ %{})
+
+  def dpngettext(backend, domain, msgctxt, msgid, msgid_plural, n, bindings) when is_list(bindings) do
+    dpngettext(backend, domain, msgctxt, msgid, msgid_plural, n, Map.new(bindings))
+  end
+
+  def dpngettext(backend, domain, msgctxt, msgid, msgid_plural, n, bindings)
+      when is_atom(backend) and is_binary(domain) and is_binary(msgctxt) and is_binary(msgid) and is_binary(msgid_plural) and
+             is_integer(n) and n >= 0 and is_map(bindings) do
+    locale = get_locale(backend)
+    result = backend.lngettext(locale, domain, msgctxt, msgid, msgid_plural, n, bindings)
+    handle_backend_result(result, backend, locale, domain, msgid)
+  end
+
+  # TODO: Add Gettext.pngettext documentation.
+  @spec pngettext(module, binary, binary, binary, non_neg_integer, bindings) :: binary
+  def pngettext(backend, msgctxt, msgid, msgid_plural, n, bindings \\ %{}) do
+    dpngettext(backend, "default", msgctxt, msgid, msgid_plural, n, bindings)
   end
 
   @doc """

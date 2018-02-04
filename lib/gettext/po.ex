@@ -11,6 +11,7 @@ defmodule Gettext.PO do
   alias Gettext.PO.Translation
   alias Gettext.PO.ParticularTranslation
   alias Gettext.PO.PluralTranslation
+  alias Gettext.PO.ParticularPluralTranslation
 
   @type line :: pos_integer
   @type parse_error :: {:error, line, binary}
@@ -259,6 +260,19 @@ defmodule Gettext.PO do
       dump_comments(t.extracted_comments),
       dump_flags(t.flags),
       dump_references(t.references, gettext_config),
+      dump_kw_and_strings("msgid", t.msgid),
+      dump_kw_and_strings("msgid_plural", t.msgid_plural),
+      dump_plural_msgstr(t.msgstr)
+    ]
+  end
+
+  defp dump_translation(%ParticularPluralTranslation{} = t, gettext_config) do
+    [
+      dump_comments(t.comments),
+      dump_comments(t.extracted_comments),
+      dump_flags(t.flags),
+      dump_references(t.references, gettext_config),
+      dump_kw_and_strings("msgctxt", t.msgctxt),
       dump_kw_and_strings("msgid", t.msgid),
       dump_kw_and_strings("msgid_plural", t.msgid_plural),
       dump_plural_msgstr(t.msgstr)

@@ -702,7 +702,7 @@ defmodule Gettext do
   def dpgettext(backend, domain, msgctxt, msgid, bindings)
       when is_atom(backend) and is_binary(domain) and is_binary(msgctxt) and is_binary(msgid) and is_map(bindings) do
     locale = get_locale(backend)
-    result = backend.lgettext(locale, domain, msgctxt, msgid, bindings)
+    result = backend.lpgettext(locale, domain, msgctxt, msgid, bindings)
     handle_backend_result(result, backend, locale, domain, msgid)
   end
 
@@ -780,7 +780,7 @@ defmodule Gettext do
       when is_atom(backend) and is_binary(domain) and is_binary(msgctxt) and is_binary(msgid) and is_binary(msgid_plural) and
              is_integer(n) and n >= 0 and is_map(bindings) do
     locale = get_locale(backend)
-    result = backend.lngettext(locale, domain, msgctxt, msgid, msgid_plural, n, bindings)
+    result = backend.lpngettext(locale, domain, msgctxt, msgid, msgid_plural, n, bindings)
     handle_backend_result(result, backend, locale, domain, msgid)
   end
 

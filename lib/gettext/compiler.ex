@@ -59,9 +59,9 @@ defmodule Gettext.Compiler do
       # These are the two functions we generated inside the backend. Here we define the bodyless
       # clauses.
       def lgettext(locale, domain, msgid, bindings)
-      def lgettext(locale, domain, msgctxt, msgid, bindings)
+      def lpgettext(locale, domain, msgctxt, msgid, bindings)
       def lngettext(locale, domain, msgid, msgid_plural, n, bindings)
-      def lngettext(locale, domain, msgctxt, msgid, msgid_plural, n, bindings)
+      def lpngettext(locale, domain, msgctxt, msgid, msgid_plural, n, bindings)
 
       unquote(compile_po_files(env, translations_dir, opts))
       unquote(catch_all_clauses())
@@ -162,7 +162,8 @@ defmodule Gettext.Compiler do
           )
         end
 
-        {msgctxt, {msgid, msgid_plural}} # FIXME
+        # FIXME
+        {msgctxt, {msgid, msgid_plural}}
       end
 
       defmacro pngettext_noop(msgctxt, msgid, msgid_plural) do
@@ -249,7 +250,8 @@ defmodule Gettext.Compiler do
 
       defmacro dpngettext(domain, msgctxt, msgid, msgid_plural, n, bindings \\ Macro.escape(%{})) do
         quote do
-          {msgctxt, {msgid, msgid_plural}} = # FIXME
+          # FIXME
+          {msgctxt, {msgid, msgid_plural}} =
             unquote(__MODULE__).dpngettext_noop(
               unquote(domain),
               unquote(msgctxt),
@@ -301,7 +303,7 @@ defmodule Gettext.Compiler do
         catch_all(domain, msgid, bindings)
       end
 
-      def lgettext(_locale, domain, msgctxt, msgid, bindings) do
+      def lpgettext(_locale, domain, msgctxt, msgid, bindings) do
         catch_all_p(domain, msgctxt, msgid, bindings)
       end
 
@@ -309,7 +311,7 @@ defmodule Gettext.Compiler do
         catch_all_n(domain, msgid, msgid_plural, n, bindings)
       end
 
-      def lngettext(_locale, domain, msgctxt, msgid, msgid_plural, n, bindings) do
+      def lpngettext(_locale, domain, msgctxt, msgid, msgid_plural, n, bindings) do
         catch_all_pn(domain, msgctxt, msgid, msgid_plural, n, bindings)
       end
     end
@@ -463,7 +465,8 @@ defmodule Gettext.Compiler do
   end
 
   defp compile_serial_po_file(path, plural_mod) do
-    {locale, domain, singular_fun, plural_fun, quoted} = compile_po_file(:defp, path, plural_mod)
+    {locale, domain, singular_fun, particular_fun, plural_fun, particular_plural_fun, quoted} =
+      compile_po_file(:defp, path, plural_mod)
 
     quote do
       unquote(quoted)
@@ -472,23 +475,23 @@ defmodule Gettext.Compiler do
         unquote(singular_fun)(msgid, bindings)
       end
 
-      def lgettext(unquote(locale), unquote(domain), msgctxt, msgid, bindings) do
-        unquote(singular_fun)(msgctxt, msgid, bindings)
+      def lpgettext(unquote(locale), unquote(domain), msgctxt, msgid, bindings) do
+        unquote(particular_fun)(msgctxt, msgid, bindings)
       end
 
       def lngettext(unquote(locale), unquote(domain), msgid, msgid_plural, n, bindings) do
         unquote(plural_fun)(msgid, msgid_plural, n, bindings)
       end
 
-      def lngettext(unquote(locale), unquote(domain), msgctxt, msgid, msgid_plural, n, bindings) do
-        unquote(plural_fun)(msgctxt, msgid, msgid_plural, n, bindings)
+      def lpngettext(unquote(locale), unquote(domain), msgctxt, msgid, msgid_plural, n, bindings) do
+        unquote(particular_plural_fun)(msgctxt, msgid, msgid_plural, n, bindings)
       end
     end
   end
 
   defp compile_parallel_po_file(env, path, locales, plural_mod) do
-    {locale, domain, singular_fun, plural_fun, locale_module_quoted} =
-      compile_po_file(:def, path, plural_mod)
+    {locale, domain, singular_fun, particular_fun, plural_fun, particular_plural_fun,
+     locale_module_quoted} = compile_po_file(:def, path, plural_mod)
 
     module = :"#{env.module}.T_#{locale}"
 
@@ -498,16 +501,30 @@ defmodule Gettext.Compiler do
           unquote(module).unquote(singular_fun)(msgid, bindings)
         end
 
-        def lgettext(unquote(locale), unquote(domain), msgctxt, msgid, bindings) do
-          unquote(module).unquote(singular_fun)(msgctxt, msgid, bindings)
+        def lpgettext(unquote(locale), unquote(domain), msgctxt, msgid, bindings) do
+          unquote(module).unquote(particular_fun)(msgctxt, msgid, bindings)
         end
 
         def lngettext(unquote(locale), unquote(domain), msgid, msgid_plural, n, bindings) do
           unquote(module).unquote(plural_fun)(msgid, msgid_plural, n, bindings)
         end
 
-        def lngettext(unquote(locale), unquote(domain), msgctxt, msgid, msgid_plural, n, bindings) do
-          unquote(module).unquote(plural_fun)(msgctxt, msgid, msgid_plural, n, bindings)
+        def lpngettext(
+              unquote(locale),
+              unquote(domain),
+              msgctxt,
+              msgid,
+              msgid_plural,
+              n,
+              bindings
+            ) do
+          unquote(module).unquote(particular_plural_fun)(
+            msgctxt,
+            msgid,
+            msgid_plural,
+            n,
+            bindings
+          )
         end
       end
 
@@ -522,8 +539,23 @@ defmodule Gettext.Compiler do
     %PO{translations: translations, file: file} = PO.parse_file!(path)
 
     singular_fun = :"#{locale}_#{domain}_lgettext"
+    particular_fun = :"#{locale}_#{domain}_lpgettext"
     plural_fun = :"#{locale}_#{domain}_lngettext"
-    mapper = &compile_translation(kind, locale, &1, singular_fun, plural_fun, file, plural_mod)
+    particular_plural_fun = :"#{locale}_#{domain}_lpngettext"
+
+    mapper =
+      &compile_translation(
+        kind,
+        locale,
+        &1,
+        singular_fun,
+        particular_fun,
+        plural_fun,
+        particular_plural_fun,
+        file,
+        plural_mod
+      )
+
     translations = block(Enum.map(translations, mapper))
 
     quoted =
@@ -534,7 +566,7 @@ defmodule Gettext.Compiler do
           catch_all(unquote(domain), msgid, bindings)
         end
 
-        Kernel.unquote(kind)(unquote(singular_fun)(msgctxt, msgid, bindings)) do
+        Kernel.unquote(kind)(unquote(particular_fun)(msgctxt, msgid, bindings)) do
           catch_all_p(unquote(domain), msgctxt, msgid, bindings)
         end
 
@@ -542,12 +574,14 @@ defmodule Gettext.Compiler do
           catch_all_n(unquote(domain), msgid, msgid_plural, n, bindings)
         end
 
-        Kernel.unquote(kind)(unquote(plural_fun)(msgctxt, msgid, msgid_plural, n, bindings)) do
+        Kernel.unquote(kind)(
+          unquote(particular_plural_fun)(msgctxt, msgid, msgid_plural, n, bindings)
+        ) do
           catch_all_pn(unquote(domain), msgctxt, msgid, msgid_plural, n, bindings)
         end
       end
 
-    {locale, domain, singular_fun, plural_fun, quoted}
+    {locale, domain, singular_fun, particular_fun, plural_fun, particular_plural_fun, quoted}
   end
 
   defp locale_and_domain_from_path(path) do
@@ -561,7 +595,9 @@ defmodule Gettext.Compiler do
          _locale,
          %Translation{} = t,
          singular_fun,
+         _particular_fun,
          _plural_fun,
+         _particular_plural_fun,
          _file,
          _plural_mod
        ) do
@@ -585,8 +621,10 @@ defmodule Gettext.Compiler do
          kind,
          _locale,
          %ParticularTranslation{} = t,
-         singular_fun,
+         _singular_fun,
+         particular_fun,
          _plural_fun,
+         _particular_plural_fun,
          _file,
          _plural_mod
        ) do
@@ -601,7 +639,7 @@ defmodule Gettext.Compiler do
     if msgstr != "" do
       quote do
         Kernel.unquote(kind)(
-          unquote(singular_fun)(unquote(msgctxt), unquote(msgid), var!(bindings))
+          unquote(particular_fun)(unquote(msgctxt), unquote(msgid), var!(bindings))
         ) do
           unquote(compile_interpolation(msgstr))
         end
@@ -614,7 +652,9 @@ defmodule Gettext.Compiler do
          locale,
          %PluralTranslation{} = t,
          _singular_fun,
+         _particular_fun,
          plural_fun,
+         _particular_plural_fun,
          file,
          plural_mod
        ) do
@@ -662,7 +702,9 @@ defmodule Gettext.Compiler do
          locale,
          %ParticularPluralTranslation{} = t,
          _singular_fun,
-         plural_fun,
+         _particular_fun,
+         _plural_fun,
+         particular_plural_fun,
          file,
          plural_mod
        ) do
@@ -695,7 +737,13 @@ defmodule Gettext.Compiler do
 
       quote do
         Kernel.unquote(kind)(
-          unquote(plural_fun)(unquote(msgctxt), unquote(msgid), unquote(msgid_plural), n, bindings)
+          unquote(particular_plural_fun)(
+            unquote(msgctxt),
+            unquote(msgid),
+            unquote(msgid_plural),
+            n,
+            bindings
+          )
         ) do
           plural_form = unquote(plural_mod).plural(unquote(locale), n)
           var!(bindings) = Map.put(bindings, :count, n)

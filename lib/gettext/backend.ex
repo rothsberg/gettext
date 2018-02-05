@@ -83,6 +83,43 @@ defmodule Gettext.Backend do
   @macrocallback gettext(msgid :: String.t()) :: Macro.t()
 
   @doc """
+  Translates the given particular translation (`msgctxt` + `msgid`) in the given `domain`.
+
+  `bindings` is a map of bindings to support interpolation.
+
+  See also `Gettext.dpgettext/5`.
+  """
+  @macrocallback dpgettext(
+                   domain :: Macro.t(),
+                   msgctxt :: String.t(),
+                   msgid :: String.t(),
+                   bindings :: Macro.t()
+                 ) :: Macro.t()
+
+  @doc """
+  Same as `dpgettext(domain, msgctxt, msgid, %{})`.
+
+  See also `Gettext.dpgettext/5`.
+  """
+  @macrocallback dpgettext(domain :: Macro.t(), msgctxt :: String.t(), msgid :: String.t()) ::
+                   Macro.t()
+
+  @doc """
+  Same as `dpgettext("default", msgctxt, msgid, %{})`.
+
+  See also `Gettext.pgettext/4`.
+  """
+  @macrocallback pgettext(msgctxt :: String.t(), msgid :: String.t(), bindings :: Macro.t()) ::
+                   Macro.t()
+
+  @doc """
+  Same as `pgettext(msgctxt, msgid, %{})`.
+
+  See also `Gettext.pgettext/4`.
+  """
+  @macrocallback pgettext(msgctxt :: String.t(), msgid :: String.t()) :: Macro.t()
+
+  @doc """
   Translates the given plural translation (`msgid` + `msgid_plural`) in the
   given `domain`.
 
@@ -132,6 +169,62 @@ defmodule Gettext.Backend do
                    Macro.t()
 
   @doc """
+  Translates the given plural translation (`msgctxt` + `msgid` + `msgid_plural`) in the
+  given `domain`.
+
+  `n` is an integer used to determine how to pluralize the
+  translation. `bindings` is a map of bindings to support interpolation.
+
+  See also `Gettext.dpngettext/7`.
+  """
+  @macrocallback dpngettext(
+                   domain :: Macro.t(),
+                   msgctxt :: String.t(),
+                   msgid :: String.t(),
+                   msgid_plural :: String.t(),
+                   n :: Macro.t(),
+                   bindings :: Macro.t()
+                 ) :: Macro.t()
+
+  @doc """
+  Same as `dpngettext(domain, msgctxt, msgid, msgid_plural, n, %{})`.
+
+  See also `Gettext.dpngettext/7`.
+  """
+  @macrocallback dpngettext(
+                   domain :: Macro.t(),
+                   msgctxt :: String.t(),
+                   msgid :: String.t(),
+                   msgid_plural :: String.t(),
+                   n :: Macro.t()
+                 ) :: Macro.t()
+
+  @doc """
+  Same as `dpngettext("default", msgctxt, msgid, msgid_plural, n, bindings)`.
+
+  See also `Gettext.pngettext/5`.
+  """
+  @macrocallback pngettext(
+                   msgctxt :: String.t(),
+                   msgid :: String.t(),
+                   msgid_plural :: String.t(),
+                   n :: Macro.t(),
+                   bindings :: Macro.t()
+                 ) :: Macro.t()
+
+  @doc """
+  Same as `pngettext(msgctxt, msgid, msgid_plural, n, %{})`.
+
+  See also `Gettext.pngettext/6`.
+  """
+  @macrocallback pngettext(
+                   msgctxt :: String.t(),
+                   msgid :: String.t(),
+                   msgid_plural :: String.t(),
+                   n :: Macro.t()
+                 ) :: Macro.t()
+
+  @doc """
   Marks the given translation for extraction and returns it unchanged.
 
   This macro can be used to mark a translation for extraction when `mix
@@ -150,6 +243,26 @@ defmodule Gettext.Backend do
   Same as `dgettext_noop("default", msgid)`.
   """
   @macrocallback gettext_noop(msgid :: String.t()) :: Macro.t()
+
+  @doc """
+  Marks the given translation for extraction and returns
+  `{msgctxt, msgid}`.
+
+  This macro can be used to mark a translation for extraction when `mix
+  gettext.extract` is run. The return value of this macro is `{msgctxt,
+  msgid}`.
+
+  ## Examples
+  TODO: Add dpgettext_noop example.
+
+  """
+  @macrocallback dpgettext_noop(domain :: String.t(), msgctxt :: String.t(), msgid :: String.t()) ::
+                   Macro.t()
+
+  @doc """
+  Same as `dpgettext_noop("default", msgctxt, msgid")`
+  """
+  @macrocallback pgettext_noop(msgctxt :: String.t(), msgid :: String.t()) :: Macro.t()
 
   @doc """
   Marks the given translation for extraction and returns
@@ -178,6 +291,32 @@ defmodule Gettext.Backend do
   Same as `dngettext_noop("default", msgid, mgsid_plural)`.
   """
   @macrocallback ngettext_noop(msgid :: String.t(), msgid_plural :: String.t()) :: Macro.t()
+
+  @doc """
+  Marks the given translation for extraction and returns
+  `{msgctxt, {msgid, msgid_plural}}`.
+
+  This macro can be used to mark a translation for extraction when `mix
+  gettext.extract` is run. The return value of this macro is `{msgctxt, {msgid, msgid_plural}}`.
+
+  ## Examples
+  TODO: Add dpngettext_noop example.
+  """
+  @macrocallback dpngettext_noop(
+                   domain :: Macro.t(),
+                   msgctxt :: String.t(),
+                   msgid :: String.t(),
+                   msgid_plural :: String.t()
+                 ) :: Macro.t()
+
+  @doc """
+  Same as `dpngettext_noop("default", msgctxt, msgid, mgsid_plural)`.
+  """
+  @macrocallback pngettext_noop(
+                   msgctxt :: String.t(),
+                   msgid :: String.t(),
+                   msgid_plural :: String.t()
+                 ) :: Macro.t()
 
   @doc """
   Stores an "extracted comment" for the next translation.

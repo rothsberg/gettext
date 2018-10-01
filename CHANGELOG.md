@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.16.0
+
+* Fix bugs related to expanding arguments to Gettext macros
+* Fix a bug where you couldn't have filenames with colons in them in reference comments
+* Add `handle_missing_translation/4` and `handle_missing_plural_translation/6` callbacks to Gettext backends
+* Fix a bug in `mix gettext.extract`, which was ignoring the `--merge` option
+
+## v0.15.0
+
+* Generate correct plural forms when dumping new translations in PO files
+* Fix a bug where we were losing translator comments for fuzzy-merged translations
+* Don't make an exact match when merging prevent later fuzzy matches
+* Allow multiple translations to fuzzy-match against the same translation when merging
+* Bump the Elixir requirement to v1.4 and on
+
+## v0.14.1
+
+* Copy flags from existing translations when merging translations
+
 ## v0.14.0
 
 * Introduce a global locale (per-process) for all Gettext backends

@@ -37,12 +37,10 @@ defmodule Gettext.Fuzzy do
   # Apparently, msgmerge only looks at the msgid when performing fuzzy
   # matching. This means that if we have two plural translations with similar
   # msgids but very different msgid_plurals, they'll still fuzzy match.
-  def jaro_distance(key1, key2) when is_binary(key1) and is_binary(key2),
-    do: String.jaro_distance(key1, key2)
-
-  def jaro_distance({key1, _}, key2) when is_binary(key2), do: String.jaro_distance(key1, key2)
-  def jaro_distance(key1, {key2, _}) when is_binary(key1), do: String.jaro_distance(key1, key2)
-  def jaro_distance({key1, _}, {key2, _}), do: String.jaro_distance(key1, key2)
+  def jaro_distance({:regular, key1}, {:regular, key2}), do: String.jaro_distance(key1, key2)
+  def jaro_distance({:plural, key1, _}, {:regular, key2}), do: String.jaro_distance(key1, key2)
+  def jaro_distance({:regular, key1}, {:plural, key2, _}), do: String.jaro_distance(key1, key2)
+  def jaro_distance({:plural, key1, _}, {:plural, key2, _}), do: String.jaro_distance(key1, key2)
 
   @doc """
   Merges a translation with the corresponding fuzzy match.
@@ -56,20 +54,22 @@ defmodule Gettext.Fuzzy do
   """
   @spec merge(PO.translation(), PO.translation()) :: PO.translation()
   def merge(new, existing) do
+    # Everything comes from "new", except for the msgstr and the comments.
     new
-    |> merge_fuzzy(existing)
+    |> Map.put(:comments, existing.comments)
+    |> merge_msgstr(existing)
     |> PO.Translations.mark_as_fuzzy()
   end
 
-  defp merge_fuzzy(%Translation{} = new, %Translation{} = existing),
+  defp merge_msgstr(%Translation{} = new, %Translation{} = existing),
     do: %{new | msgstr: existing.msgstr}
 
-  defp merge_fuzzy(%Translation{} = new, %PluralTranslation{} = existing),
+  defp merge_msgstr(%Translation{} = new, %PluralTranslation{} = existing),
     do: %{new | msgstr: existing.msgstr[0]}
 
-  defp merge_fuzzy(%PluralTranslation{} = new, %Translation{} = existing),
+  defp merge_msgstr(%PluralTranslation{} = new, %Translation{} = existing),
     do: %{new | msgstr: Map.new(new.msgstr, fn {i, _} -> {i, existing.msgstr} end)}
 
-  defp merge_fuzzy(%PluralTranslation{} = new, %PluralTranslation{} = existing),
+  defp merge_msgstr(%PluralTranslation{} = new, %PluralTranslation{} = existing),
     do: %{new | msgstr: existing.msgstr}
 end

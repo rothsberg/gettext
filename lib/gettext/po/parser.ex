@@ -66,7 +66,7 @@ defmodule Gettext.PO.Parser do
   end
 
   defp extract_references(%{__struct__: _, comments: comments} = translation) do
-    {reference_comments, other_comments} = enum_split_with(comments, &match?("#:" <> _, &1))
+    {reference_comments, other_comments} = Enum.split_with(comments, &match?("#:" <> _, &1))
 
     references =
       reference_comments
@@ -77,36 +77,19 @@ defmodule Gettext.PO.Parser do
   end
 
   defp parse_references("#:" <> comment) do
-    # Steps:
-    #   * after trimming, we remain with "21 foo.ex"
-    #   * [file, line, file, line...]
-    #   * [[file, line], [file, line], ...]
-    #   * [{file, line}, {file, line}, ...]
-    comment
-    |> String.trim()
-    |> String.split(":")
-    |> Enum.flat_map(&parse_reference_part/1)
-    |> Enum.chunk(2)
-    |> Enum.map(&List.to_tuple/1)
-  end
+    regex = ~r/
+      ((?:\w|\.|:)(?:\w|\s|\.|:|\/)+?)
+      :
+      (\d+)
+    /x
 
-  defp parse_reference_part(part) do
-    case Integer.parse(part) do
-      {next_line_no, ""} ->
-        # last line number
-        [next_line_no]
-
-      {next_line_no, filename} ->
-        [next_line_no, String.trim_leading(filename)]
-
-      :error ->
-        # first filename
-        [part]
+    for [_file_and_line, file, line] <- Regex.scan(regex, comment) do
+      {file, String.to_integer(line)}
     end
   end
 
   defp extract_extracted_comments(%{__struct__: _, comments: comments} = translation) do
-    {extracted_comments, other_comments} = enum_split_with(comments, &match?("#." <> _, &1))
+    {extracted_comments, other_comments} = Enum.split_with(comments, &match?("#." <> _, &1))
 
     extracted_comments =
       Enum.reject(extracted_comments, fn "#." <> comm -> String.trim(comm) == "" end)
@@ -115,7 +98,7 @@ defmodule Gettext.PO.Parser do
   end
 
   defp extract_flags(%{__struct__: _, comments: comments} = translation) do
-    {flag_comments, other_comments} = enum_split_with(comments, &match?("#," <> _, &1))
+    {flag_comments, other_comments} = Enum.split_with(comments, &match?("#," <> _, &1))
     %{translation | flags: parse_flags(flag_comments), comments: other_comments}
   end
 
@@ -140,21 +123,23 @@ defmodule Gettext.PO.Parser do
   end
 
   defp check_for_duplicates(translations) do
-    duplicate =
-      Enum.reduce_while(translations, %{}, fn t, acc ->
-        key = Translations.key(t)
+    check_for_duplicates(translations, %{})
+  end
 
-        if old_line = acc[key] do
-          {:halt, {t, old_line}}
-        else
-          {:cont, Map.put(acc, key, t.po_source_line)}
-        end
-      end)
+  defp check_for_duplicates([t | translations], existing) do
+    key = Translations.key(t)
 
-    case duplicate do
-      {t, old_line} -> build_duplicated_error(t, old_line)
-      _other -> :ok
+    case Map.fetch(existing, key) do
+      {:ok, old_line} ->
+        build_duplicated_error(t, old_line)
+
+      :error ->
+        check_for_duplicates(translations, Map.put(existing, key, t.po_source_line))
     end
+  end
+
+  defp check_for_duplicates([], _existing) do
+    :ok
   end
 
   defp build_duplicated_error(%Translation{} = t, old_line) do
@@ -188,10 +173,4 @@ defmodule Gettext.PO.Parser do
     do: [prefix, binary_part(rest, 0, byte_size(rest) - 2)]
 
   defp parse_error_reason(error, token), do: [error, token]
-
-  # TODO: remove once we depend on Elixir 1.4 and on.
-  Code.ensure_loaded(Enum)
-
-  split_with = if function_exported?(Enum, :split_with, 2), do: :split_with, else: :partition
-  defp enum_split_with(enum, fun), do: apply(Enum, unquote(split_with), [enum, fun])
 end

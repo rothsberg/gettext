@@ -26,41 +26,27 @@ defmodule Mix.Tasks.Gettext.Extract do
       mix gettext.extract --merge --no-fuzzy
 
   """
+
+  @switches [merge: :boolean]
+
   def run(args) do
     Application.ensure_all_started(:gettext)
     _ = Mix.Project.get!()
-    config = Mix.Project.config()
-    pot_files = extract(config[:app], config[:gettext] || [])
+    mix_config = Mix.Project.config()
+    {opts, args} = OptionParser.parse!(args, switches: @switches)
+    pot_files = extract(mix_config[:app], mix_config[:gettext] || [])
 
-    case args do
-      [] ->
-        write_extracted_files(pot_files)
+    for {path, contents} <- pot_files do
+      File.mkdir_p!(Path.dirname(path))
+      File.write!(path, contents)
+      Mix.shell().info("Extracted #{Path.relative_to_cwd(path)}")
+    end
 
-      ["--merge"] ->
-        write_extracted_files(pot_files)
-        run_merge(pot_files, args)
-
-      _ ->
-        Mix.raise(
-          "The gettext.extract task only supports the --merge option. " <>
-            "See `mix help gettext.extract` for more information"
-        )
+    if opts[:merge] do
+      run_merge(pot_files, args)
     end
 
     :ok
-  end
-
-  defp write_extracted_files(pot_files) do
-    tasks =
-      for {path, contents} <- pot_files do
-        Task.async(fn ->
-          File.mkdir_p!(Path.dirname(path))
-          File.write!(path, contents)
-          Mix.shell().info("Extracted #{Path.relative_to_cwd(path)}")
-        end)
-      end
-
-    Enum.map(tasks, &Task.await/1)
   end
 
   defp extract(app, gettext_config) do
@@ -73,6 +59,7 @@ defmodule Mix.Tasks.Gettext.Extract do
 
   defp force_compile do
     Enum.map(Mix.Tasks.Compile.Elixir.manifests(), &make_old_if_exists/1)
+
     # If "compile" was never called, the reenabling is a no-op and
     # "compile.elixir" is a no-op as well (because it wasn't reenabled after
     # running "compile"). If "compile" was already called, then running
@@ -91,7 +78,7 @@ defmodule Mix.Tasks.Gettext.Extract do
     pot_files
     |> Enum.map(fn {path, _} -> Path.dirname(path) end)
     |> Enum.uniq()
-    |> Enum.map(&Task.async(fn -> Mix.Tasks.Gettext.Merge.run([&1 | argv]) end))
-    |> Enum.map(&Task.await/1)
+    |> Task.async_stream(&Mix.Tasks.Gettext.Merge.run([&1 | argv]), ordered: false)
+    |> Stream.run()
   end
 end

@@ -473,10 +473,10 @@ defmodule Gettext do
       `"priv"` directory of your application. Defaults to
       `"gettext/*/LC_MESSAGES/*.po"`.
 
-    * `:write_reference_comments` - a boolean that specifies whether reference comments should be
-      written when outputting PO(T) files. If this is `false`, reference comments will not be
-      written when extracting translations or merging translations, and the ones already found in
-      files will be discarded.
+    * `:write_reference_comments` - a boolean that specifies whether reference
+      comments should be written when outputting PO(T) files. If this is `false`,
+      reference comments will not be written when extracting translations or merging
+      translations, and the ones already found in files will be discarded.
 
   """
 
@@ -492,8 +492,11 @@ defmodule Gettext do
     @moduledoc """
     An error message raised for missing bindings errors.
     """
+
     @enforce_keys [:backend, :domain, :locale, :msgid, :missing]
     defexception [:backend, :domain, :locale, :msgid, :missing]
+
+    @type t() :: %__MODULE__{}
 
     def message(%{
           backend: backend,
@@ -509,7 +512,7 @@ defmodule Gettext do
 
   @type locale :: binary
   @type backend :: module
-  @type bindings :: %{} | Keyword.t()
+  @type bindings :: map() | Keyword.t()
 
   @doc false
   defmacro __using__(opts) do
@@ -525,6 +528,51 @@ defmodule Gettext do
       end
 
       defoverridable handle_missing_bindings: 2
+
+      def handle_missing_translation(_locale, domain, msgid, bindings) do
+        import Gettext.Interpolation, only: [to_interpolatable: 1, interpolate: 2]
+
+        Gettext.Compiler.warn_if_domain_contains_slashes(domain)
+
+        with {:ok, interpolated} <- interpolate(to_interpolatable(msgid), bindings),
+             do: {:default, interpolated}
+      end
+
+      def handle_missing_particular_translation(_locale, domain, msgctxt, msgid, bindings) do
+        import Gettext.Interpolation, only: [to_interpolatable: 1, interpolate: 2]
+
+        Gettext.Compiler.warn_if_domain_contains_slashes(domain)
+
+        with {:ok, interpolated} <- interpolate(to_interpolatable(msgid), bindings),
+             do: {:default, interpolated}
+      end
+
+      def handle_missing_plural_translation(_locale, domain, msgid, msgid_plural, n, bindings) do
+        import Gettext.Interpolation, only: [to_interpolatable: 1, interpolate: 2]
+
+        Gettext.Compiler.warn_if_domain_contains_slashes(domain)
+        string = if n == 1, do: msgid, else: msgid_plural
+        bindings = Map.put(bindings, :count, n)
+
+        with {:ok, interpolated} <- interpolate(to_interpolatable(string), bindings),
+             do: {:default, interpolated}
+      end
+
+      def handle_missing_particular_plural_translation(_locale, domain, msgctxt, msgid, msgid_plural, n, bindings) do
+        import Gettext.Interpolation, only: [to_interpolatable: 1, interpolate: 2]
+
+        Gettext.Compiler.warn_if_domain_contains_slashes(domain)
+        string = if n == 1, do: msgid, else: msgid_plural
+        bindings = Map.put(bindings, :count, n)
+
+        with {:ok, interpolated} <- interpolate(to_interpolatable(string), bindings),
+             do: {:default, interpolated}
+      end
+
+      defoverridable handle_missing_translation: 4,
+                     handle_missing_particular_translation: 5,
+                     handle_missing_plural_translation: 6,
+                     handle_missing_particular_plural_translation: 7
     end
   end
 
@@ -700,7 +748,8 @@ defmodule Gettext do
   end
 
   def dpgettext(backend, domain, msgctxt, msgid, bindings)
-      when is_atom(backend) and is_binary(domain) and is_binary(msgctxt) and is_binary(msgid) and is_map(bindings) do
+      when is_atom(backend) and is_binary(domain) and is_binary(msgctxt) and is_binary(msgid) and
+             is_map(bindings) do
     locale = get_locale(backend)
     result = backend.lpgettext(locale, domain, msgctxt, msgid, bindings)
     handle_backend_result(result, backend, locale, domain, msgid)
@@ -772,13 +821,14 @@ defmodule Gettext do
   @spec dpngettext(module, binary, binary, binary, binary, non_neg_integer, bindings) :: binary
   def dpngettext(backend, domain, msgctxt, msgid, msgid_plural, n, bindings \\ %{})
 
-  def dpngettext(backend, domain, msgctxt, msgid, msgid_plural, n, bindings) when is_list(bindings) do
+  def dpngettext(backend, domain, msgctxt, msgid, msgid_plural, n, bindings)
+      when is_list(bindings) do
     dpngettext(backend, domain, msgctxt, msgid, msgid_plural, n, Map.new(bindings))
   end
 
   def dpngettext(backend, domain, msgctxt, msgid, msgid_plural, n, bindings)
-      when is_atom(backend) and is_binary(domain) and is_binary(msgctxt) and is_binary(msgid) and is_binary(msgid_plural) and
-             is_integer(n) and n >= 0 and is_map(bindings) do
+      when is_atom(backend) and is_binary(domain) and is_binary(msgctxt) and is_binary(msgid) and
+             is_binary(msgid_plural) and is_integer(n) and n >= 0 and is_map(bindings) do
     locale = get_locale(backend)
     result = backend.lpngettext(locale, domain, msgctxt, msgid, msgid_plural, n, bindings)
     handle_backend_result(result, backend, locale, domain, msgid)

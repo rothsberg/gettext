@@ -13,22 +13,27 @@ defmodule Gettext.ExtractorAgent do
     extracting?: false
   }
 
+  @spec start_link() :: Agent.on_start()
   def start_link() do
     Agent.start_link(fn -> @initial_state end, name: @name)
   end
 
+  @spec enable() :: :ok
   def enable() do
     Agent.update(@name, &put_in(&1.extracting?, true))
   end
 
+  @spec disable() :: :ok
   def disable() do
     Agent.update(@name, &put_in(&1.extracting?, false))
   end
 
+  @spec extracting?() :: boolean()
   def extracting?() do
     Agent.get(@name, & &1.extracting?)
   end
 
+  @spec add_translation(module(), String.t(), Gettext.PO.translation()) :: :ok
   def add_translation(backend, domain, translation) do
     key = Gettext.PO.Translations.key(translation)
 
@@ -61,7 +66,7 @@ defmodule Gettext.ExtractorAgent do
   def pop_backends(app) do
     Agent.get_and_update(@name, fn state ->
       get_and_update_in(state.backends, fn backends ->
-        enum_split_with(backends, &(&1.__gettext__(:otp_app) == app))
+        Enum.split_with(backends, &(&1.__gettext__(:otp_app) == app))
       end)
     end)
   end
@@ -71,10 +76,4 @@ defmodule Gettext.ExtractorAgent do
     |> Map.put(:references, t1.references ++ t2.references)
     |> Map.put(:extracted_comments, t1.extracted_comments ++ t2.extracted_comments)
   end
-
-  # TODO: remove once we depend on Elixir 1.4 and on.
-  Code.ensure_loaded(Enum)
-
-  split_with = if function_exported?(Enum, :split_with, 2), do: :split_with, else: :partition
-  defp enum_split_with(enum, fun), do: apply(Enum, unquote(split_with), [enum, fun])
 end

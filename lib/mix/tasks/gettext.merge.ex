@@ -38,7 +38,7 @@ defmodule Mix.Tasks.Gettext.Merge do
 
       #, fuzzy
       msgid "hello, world!"
-      msgstr "ciao, mondo!"
+      msgstr "ciao, mondo"
 
   Generally, a `fuzzy` flag calls for review from a translator.
 
@@ -59,9 +59,9 @@ defmodule Mix.Tasks.Gettext.Merge do
       mix gettext.merge priv/gettext/en/LC_MESSAGES/default.po priv/gettext/default.pot
 
   If only one argument is given, then that argument must be a directory
-  containing gettext translations (with `.pot` files at the root level alongside
+  containing Gettext translations (with `.pot` files at the root level alongside
   locale directories - this is usually a "backend" directory used by a Gettext
-  backend).
+  backend, see `Gettext.Backend`).
 
       mix gettext.merge priv/gettext
 
@@ -70,47 +70,64 @@ defmodule Mix.Tasks.Gettext.Merge do
   options are given, then all the PO files for all locales under `DIR` are
   merged with the POT files in `DIR`.
 
+  ## Plural forms
+
+  By default, Gettext will determine the number of plural forms for newly generated translations
+  by checking the value of `nplurals` in the `Plural-Forms` header in the existing `.po` file. If
+  a `.po` file doesn't already exist and Gettext is creating a new one or if the `Plural-Forms`
+  header is not in the `.po` file, Gettext will use the number of plural forms that
+  `Gettext.Plural` returns for the locale of the file being created. The number of plural forms
+  can be forced through the `--plural-forms` option (see below).
+
   ## Options
 
-  The `--locale` option can only be given when there's only one argument (a
-  directory). These options can always be passed to `gettext.merge`:
+    * `--locale` - a string representing a locale. If this is provided, then only the PO
+      files in `DIR/LOCALE/LC_MESSAGES` will be merged with the POT files in `DIR`. This
+      option can only be given when a single argument is passed to the task
+      (a directory).
 
     * `--no-fuzzy` - stops fuzzy matching from being performed when merging
       files.
+
     * `--fuzzy-threshold` - a float between `0` and `1` which represents the
       miminum Jaro distance needed for two translations to be considered a fuzzy
       match. Overrides the global `:fuzzy_threshold` option (see the docs for
       `Gettext` for more information on this option).
 
+    * `--plural-forms` - a integer strictly greater than `0`. If this is passed,
+      new translations in the target PO files will have this number of empty
+      plural forms. See the "Plural forms" section above.
+
   """
 
   @default_fuzzy_threshold 0.8
-  @switches [locale: :string, fuzzy: :boolean, fuzzy_threshold: :float]
+  @switches [
+    locale: :string,
+    fuzzy: :boolean,
+    fuzzy_threshold: :float,
+    plural_forms: :integer
+  ]
 
-  alias Gettext.Merger
+  alias Gettext.{Merger, PO}
 
   def run(args) do
     _ = Mix.Project.get!()
     gettext_config = Mix.Project.config()[:gettext] || []
 
-    case OptionParser.parse(args, switches: @switches) do
-      {opts, [arg1, arg2], _} ->
-        run_with_two_args(arg1, arg2, opts, gettext_config)
+    case OptionParser.parse!(args, switches: @switches) do
+      {opts, [po_file, reference_file]} ->
+        merge_two_files(po_file, reference_file, opts, gettext_config)
 
-      {opts, [arg], _} ->
-        run_with_one_arg(arg, opts, gettext_config)
+      {opts, [translations_dir]} ->
+        merge_translations_dir(translations_dir, opts, gettext_config)
 
-      {_, [], _} ->
+      {_opts, []} ->
         Mix.raise(
           "gettext.merge requires at least one argument to work. " <>
             "Use `mix help gettext.merge` to see the usage of this task"
         )
 
-      {_, _, [_ | _] = errors} ->
-        for {key, _} <- errors, do: Mix.shell().error("#{key} is invalid")
-        Mix.raise("`mix gettext.merge` aborted")
-
-      {_, _, _} ->
+      {_opts, _args} ->
         Mix.raise(
           "Too many arguments for the gettext.merge task. " <>
             "Use `mix help gettext.merge` to see the usage of this task"
@@ -120,106 +137,101 @@ defmodule Mix.Tasks.Gettext.Merge do
     Mix.Task.reenable("gettext.merge")
   end
 
-  defp run_with_two_args(arg1, arg2, opts, gettext_config) do
+  defp merge_two_files(po_file, reference_file, opts, gettext_config) do
     merging_opts = validate_merging_opts!(opts, gettext_config)
 
-    if Path.extname(arg1) == ".po" and Path.extname(arg2) in [".po", ".pot"] do
-      ensure_file_exists!(arg1)
-      ensure_file_exists!(arg2)
-      {path, contents} = merge_po_with_pot(arg1, arg2, merging_opts, gettext_config)
-      File.write!(path, contents)
-      Mix.shell().info("Wrote #{path}")
+    if Path.extname(po_file) == ".po" and Path.extname(reference_file) in [".po", ".pot"] do
+      ensure_file_exists!(po_file)
+      ensure_file_exists!(reference_file)
+      locale = locale_from_path(po_file)
+      contents = merge_files(po_file, reference_file, locale, merging_opts, gettext_config)
+      write_file(po_file, contents)
     else
       Mix.raise("Arguments must be a PO file and a PO/POT file")
     end
   end
 
-  defp run_with_one_arg(arg, opts, gettext_config) do
-    ensure_dir_exists!(arg)
+  defp merge_translations_dir(dir, opts, gettext_config) do
+    ensure_dir_exists!(dir)
     merging_opts = validate_merging_opts!(opts, gettext_config)
 
     if locale = opts[:locale] do
-      merge_locale_dir(arg, locale, merging_opts, gettext_config)
+      merge_locale_dir(dir, locale, merging_opts, gettext_config)
     else
-      merge_all_locale_dirs(arg, merging_opts, gettext_config)
+      merge_all_locale_dirs(dir, merging_opts, gettext_config)
     end
-  end
-
-  defp merge_po_with_pot(po_file, pot_file, opts, gettext_config) do
-    {po_file, Merger.merge_files(po_file, pot_file, opts, gettext_config)}
   end
 
   defp merge_locale_dir(pot_dir, locale, opts, gettext_config) do
     locale_dir = locale_dir(pot_dir, locale)
     create_missing_locale_dir(locale_dir)
-    merge_dirs(locale_dir, pot_dir, opts, gettext_config)
+    merge_dirs(locale_dir, pot_dir, locale, opts, gettext_config)
   end
 
   defp merge_all_locale_dirs(pot_dir, opts, gettext_config) do
-    pot_dir
-    |> ls_locale_dirs()
-    |> Enum.each(&merge_dirs(&1, pot_dir, opts, gettext_config))
+    for locale <- File.ls!(pot_dir), File.dir?(Path.join(pot_dir, locale)) do
+      merge_dirs(locale_dir(pot_dir, locale), pot_dir, locale, opts, gettext_config)
+    end
   end
 
   def locale_dir(pot_dir, locale) do
     Path.join([pot_dir, locale, "LC_MESSAGES"])
   end
 
-  defp ls_locale_dirs(dir) do
-    dir
-    |> File.ls!()
-    |> Enum.filter(&File.dir?(Path.join(dir, &1)))
-    |> Enum.map(&locale_dir(dir, &1))
-  end
+  defp merge_dirs(po_dir, pot_dir, locale, opts, gettext_config) do
+    merger = fn pot_file ->
+      po_file = find_matching_po(pot_file, po_dir)
+      contents = merge_or_create(pot_file, po_file, locale, opts, gettext_config)
+      write_file(po_file, contents)
+    end
 
-  defp merge_dirs(po_dir, pot_dir, opts, gettext_config) do
     pot_dir
     |> Path.join("*.pot")
     |> Path.wildcard()
-    |> Enum.map(fn pot_file ->
-      Task.async(fn ->
-        pot_file
-        |> find_matching_po(po_dir)
-        |> merge_or_create(opts, gettext_config)
-        |> write_file()
-      end)
-    end)
-    |> Enum.map(&Task.await/1)
+    |> Task.async_stream(merger, ordered: false, timeout: 10_000)
+    |> Stream.run()
 
-    # Now warn for every PO file that has no matching POT file.
-    po_dir
-    |> Path.join("*.po")
-    |> Path.wildcard()
-    |> Enum.reject(&po_has_matching_pot?(&1, pot_dir))
-    |> Enum.each(&warn_for_missing_pot_file(&1, pot_dir))
+    warn_for_po_without_pot(po_dir, pot_dir)
   end
 
   defp find_matching_po(pot_file, po_dir) do
     domain = Path.basename(pot_file, ".pot")
-    {pot_file, Path.join(po_dir, "#{domain}.po")}
+    Path.join(po_dir, "#{domain}.po")
   end
 
-  defp merge_or_create({pot_file, po_file}, opts, gettext_config) do
+  defp merge_or_create(pot_file, po_file, locale, opts, gettext_config) do
     if File.regular?(po_file) do
-      {po_file, Merger.merge_files(po_file, pot_file, opts)}
+      merge_files(po_file, pot_file, locale, opts, gettext_config)
     else
-      {po_file, Merger.new_po_file(po_file, pot_file, gettext_config)}
+      Merger.new_po_file(po_file, pot_file, locale, opts, gettext_config)
     end
   end
 
-  defp write_file({path, contents}) do
+  defp merge_files(po_file, pot_file, locale, opts, gettext_config) do
+    merged = Merger.merge(PO.parse_file!(po_file), PO.parse_file!(pot_file), locale, opts)
+    PO.dump(merged, gettext_config)
+  end
+
+  defp write_file(path, contents) do
     File.write!(path, contents)
     Mix.shell().info("Wrote #{path}")
+  end
+
+  # Warns for every PO file that has no matching POT file.
+  defp warn_for_po_without_pot(po_dir, pot_dir) do
+    po_dir
+    |> Path.join("*.po")
+    |> Path.wildcard()
+    |> Enum.reject(&po_has_matching_pot?(&1, pot_dir))
+    |> Enum.each(fn po_file ->
+      Mix.shell().info("Warning: PO file #{po_file} has no matching POT file in #{pot_dir}")
+    end)
   end
 
   defp po_has_matching_pot?(po_file, pot_dir) do
     domain = Path.basename(po_file, ".po")
     pot_path = Path.join(pot_dir, "#{domain}.pot")
     File.exists?(pot_path)
-  end
-
-  defp warn_for_missing_pot_file(po_file, pot_dir) do
-    Mix.shell().info("Warning: PO file #{po_file} has no matching POT file in #{pot_dir}")
   end
 
   defp ensure_file_exists!(path) do
@@ -238,9 +250,13 @@ defmodule Mix.Tasks.Gettext.Merge do
   end
 
   defp validate_merging_opts!(opts, gettext_config) do
-    default_threshold = gettext_config[:fuzzy_threshold] || @default_fuzzy_threshold
-    defaults = [fuzzy: true, fuzzy_threshold: default_threshold]
-    opts = Keyword.merge(defaults, Keyword.take(opts, [:fuzzy, :fuzzy_threshold]))
+    opts =
+      opts
+      |> Keyword.take([:fuzzy, :fuzzy_threshold, :plural_forms])
+      |> Keyword.put_new(:fuzzy, true)
+      |> Keyword.put_new_lazy(:fuzzy_threshold, fn ->
+        gettext_config[:fuzzy_threshold] || @default_fuzzy_threshold
+      end)
 
     threshold = opts[:fuzzy_threshold]
 
@@ -249,5 +265,11 @@ defmodule Mix.Tasks.Gettext.Merge do
     end
 
     opts
+  end
+
+  defp locale_from_path(path) do
+    parts = Path.split(path)
+    index = Enum.find_index(parts, &(&1 == "LC_MESSAGES"))
+    Enum.at(parts, index - 1)
   end
 end

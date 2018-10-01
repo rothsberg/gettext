@@ -3,7 +3,9 @@ defmodule Gettext.Fuzzy do
 
   alias Gettext.PO
   alias Gettext.PO.Translation
+  alias Gettext.PO.ParticularTranslation
   alias Gettext.PO.PluralTranslation
+  alias Gettext.PO.ParticularPluralTranslation
 
   @type translation_key :: binary | {binary, binary}
 
@@ -37,10 +39,9 @@ defmodule Gettext.Fuzzy do
   # Apparently, msgmerge only looks at the msgid when performing fuzzy
   # matching. This means that if we have two plural translations with similar
   # msgids but very different msgid_plurals, they'll still fuzzy match.
-  def jaro_distance({:regular, key1}, {:regular, key2}), do: String.jaro_distance(key1, key2)
-  def jaro_distance({:plural, key1, _}, {:regular, key2}), do: String.jaro_distance(key1, key2)
-  def jaro_distance({:regular, key1}, {:plural, key2, _}), do: String.jaro_distance(key1, key2)
-  def jaro_distance({:plural, key1, _}, {:plural, key2, _}), do: String.jaro_distance(key1, key2)
+  def jaro_distance(key1, key2) do
+    String.jaro_distance(msgid_from_translation_key(key1), msgid_from_translation_key(key2))
+  end
 
   @doc """
   Merges a translation with the corresponding fuzzy match.
@@ -64,12 +65,56 @@ defmodule Gettext.Fuzzy do
   defp merge_msgstr(%Translation{} = new, %Translation{} = existing),
     do: %{new | msgstr: existing.msgstr}
 
+  defp merge_msgstr(%Translation{} = new, %ParticularTranslation{} = existing),
+    do: %{new | msgstr: existing.msgstr}
+
   defp merge_msgstr(%Translation{} = new, %PluralTranslation{} = existing),
+    do: %{new | msgstr: existing.msgstr[0]}
+
+  defp merge_msgstr(%Translation{} = new, %ParticularPluralTranslation{} = existing),
+    do: %{new | msgstr: existing.msgstr[0]}
+
+  defp merge_msgstr(%ParticularTranslation{} = new, %Translation{} = existing),
+    do: %{new | msgstr: existing.msgstr}
+
+  defp merge_msgstr(%ParticularTranslation{} = new, %ParticularTranslation{} = existing),
+    do: %{new | msgstr: existing.msgstr}
+
+  defp merge_msgstr(%ParticularTranslation{} = new, %PluralTranslation{} = existing),
+    do: %{new | msgstr: existing.msgstr[0]}
+
+  defp merge_msgstr(%ParticularTranslation{} = new, %ParticularPluralTranslation{} = existing),
     do: %{new | msgstr: existing.msgstr[0]}
 
   defp merge_msgstr(%PluralTranslation{} = new, %Translation{} = existing),
     do: %{new | msgstr: Map.new(new.msgstr, fn {i, _} -> {i, existing.msgstr} end)}
 
+  defp merge_msgstr(%PluralTranslation{} = new, %ParticularTranslation{} = existing),
+    do: %{new | msgstr: Map.new(new.msgstr, fn {i, _} -> {i, existing.msgstr} end)}
+
   defp merge_msgstr(%PluralTranslation{} = new, %PluralTranslation{} = existing),
     do: %{new | msgstr: existing.msgstr}
+
+  defp merge_msgstr(%PluralTranslation{} = new, %ParticularPluralTranslation{} = existing),
+    do: %{new | msgstr: existing.msgstr}
+
+  defp merge_msgstr(%ParticularPluralTranslation{} = new, %Translation{} = existing),
+    do: %{new | msgstr: Map.new(new.msgstr, fn {i, _} -> {i, existing.msgstr} end)}
+
+  defp merge_msgstr(%ParticularPluralTranslation{} = new, %ParticularTranslation{} = existing),
+    do: %{new | msgstr: Map.new(new.msgstr, fn {i, _} -> {i, existing.msgstr} end)}
+
+  defp merge_msgstr(%ParticularPluralTranslation{} = new, %PluralTranslation{} = existing),
+    do: %{new | msgstr: existing.msgstr}
+
+  defp merge_msgstr(
+         %ParticularPluralTranslation{} = new,
+         %ParticularPluralTranslation{} = existing
+       ),
+       do: %{new | msgstr: existing.msgstr}
+
+  defp msgid_from_translation_key({:regular, msgid}), do: msgid
+  defp msgid_from_translation_key({:particular, _msgctxt, msgid}), do: msgid
+  defp msgid_from_translation_key({:plural, msgid, _msgid_plural}), do: msgid
+  defp msgid_from_translation_key({:particular_plural, _msgctxt, msgid, _msgid_plural}), do: msgid
 end

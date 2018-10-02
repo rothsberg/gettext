@@ -88,7 +88,17 @@ defmodule Gettext.Merger do
     %{t | msgstr: new_msgstr}
   end
 
+  defp adjust_number_of_plural_forms(%ParticularPluralTranslation{} = t, plural_forms)
+       when plural_forms > 0 do
+    new_msgstr = Map.new(0..(plural_forms - 1), &{&1, [""]})
+    %{t | msgstr: new_msgstr}
+  end
+
   defp adjust_number_of_plural_forms(%Translation{} = t, _plural_forms) do
+    t
+  end
+
+  defp adjust_number_of_plural_forms(%ParticularTranslation{} = t, _plural_forms) do
     t
   end
 
